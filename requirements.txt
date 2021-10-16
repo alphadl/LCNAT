@@ -1,0 +1,4 @@
+# Python >= 3.6
+torch
+numpy
+h5py

@@ -1,16 +1,14 @@
-task=$1
-python ./fairseq_mask/scripts/average_checkpoints.py --inputs ./checkpoint/${s}${t}/${task}/${filename}/top5_checkpoints_path/* --output ./checkpoint/${s}${t}/${task}/${filename}/top5.pt
-
-CUDA_VISIBLE_DEVICES=$2 python ./fairseq_lev/fairseq/fairseq_cli/generate.py $TASK_path \
-  --gen-subset test \
-  --task translation_lev \
-  --path ./checkpoint/${s}${t}/${task}/${filename}/top5.pt \
-  --iter-decode-max-iter 10 \
-  --iter-decode-eos-penalty 0 \
-  --remove-bpe \
-  --iter-decode-with-beam 1 \
-  --print-step \
-  --batch-size 30 > ./rst/${s}${t}/${task}/top5.pt.out 2>&1 &
-
-bash ./fairseq_mask/scripts/compound_split_bleu.sh ./rst/${s}${t}/${task}/top5.pt.out
-# ~27.8
+#!/usr/bin/env bash
+# Run test-set decoding and BLEU (Levenshtein). Set SRC, TGT, DATA, CHECKPOINT, REF.
+set -e
+SRC="${SRC:-en}"
+TGT="${TGT:-de}"
+DATA="${DATA:?Set DATA=path/to/databin}"
+CHECKPOINT="${CHECKPOINT:?Set CHECKPOINT=path/to/checkpoint}"
+REF="${REF:-}"
+SUBSET=test
+export DATA CHECKPOINT SRC TGT SUBSET
+bash "$(dirname "${BASH_SOURCE[0]}")/eval_lev.sh"
+if [ -n "$REF" ] && [ -f "$REF" ]; then
+  sacrebleu "$REF" -i "$CHECKPOINT/gen/test.hyp" -b
+fi

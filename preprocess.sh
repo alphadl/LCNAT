@@ -1,24 +1,33 @@
-#! /usr/bin/bash
+#!/usr/bin/env bash
+# Binarize KD data and extract vocab for LCNAT prior (WAD).
+# Expects: data/ende_data/train_kd.{en,de}, valid.{en,de}, test.{en,de}
+# Set SRC, TGT, DATA_DIR to override (e.g. SRC=en TGT=de DATA_DIR=./data/ende_data).
+set -e
+SRC="${SRC:-en}"
+TGT="${TGT:-de}"
+DATA_DIR="${DATA_DIR:-./data/${SRC}${TGT}_data}"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKERS="${WORKERS:-8}"
 
-# preprocess data
-s=en
-t=de
+mkdir -p "$DATA_DIR/databin"
 
-echo ">>> binarize the data"
-
-if [ ! -d ./data/${s}${t}_data/databin/sentence ]; then
-  mkdir -p ./data/${s}${t}_data/databin/sentence
-  
-  nohup python ./fairseq/fairseq_cli/preprocess.py \
-    --source-lang ${s} --target-lang ${t} \
-    --trainpref ./data/${s}${t}_data/train_kd \
-    --validpref ./data/${s}${t}_data/valid --testpref ./data/${s}${t}_data/test \
+if [ ! -f "$DATA_DIR/databin/dict.$SRC.txt" ]; then
+  echo ">>> Binarizing..."
+  python "$ROOT/fairseq/fairseq_cli/preprocess.py" \
+    --source-lang $SRC --target-lang $TGT \
+    --trainpref "$DATA_DIR/train_kd" \
+    --validpref "$DATA_DIR/valid" \
+    --testpref "$DATA_DIR/test" \
+    --destdir "$DATA_DIR/databin" \
     --joined-dictionary \
-    --destdir ./data/${s}${t}_data/databin/ \
-    --workers 64
+    --workers $WORKERS
+  echo ">>> Binarizing finished."
 fi
-wait
-echo ">>> binarizing finished"
 
-python ./run/lcnat_extract_vocab.py ./data/${s}${t}_data/databin/dict.en.txt  ./data/${s}${t}_data/databin/lc.en-de.en.vocab
-python ./run/lcnat_extract_vocab.py ./data/${s}${t}_data/databin/dict.de.txt  ./data/${s}${t}_data/databin/lc.en-de.de.vocab
+python "$ROOT/run/lcnat_extract_vocab.py" \
+  "$DATA_DIR/databin/dict.$SRC.txt" \
+  "$DATA_DIR/databin/lc.$SRC-$TGT.$SRC.vocab"
+python "$ROOT/run/lcnat_extract_vocab.py" \
+  "$DATA_DIR/databin/dict.$TGT.txt" \
+  "$DATA_DIR/databin/lc.$SRC-$TGT.$TGT.vocab"
+echo ">>> Vocab saved to $DATA_DIR/databin/lc.*.vocab"

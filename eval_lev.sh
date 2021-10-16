@@ -1,28 +1,27 @@
-#! /usr/bin/bash
+#!/usr/bin/env bash
+# Decode with Levenshtein Transformer (iterative refinement, beam 1 for LevT).
+# Usage: SRC=en TGT=de DATA=./data/ende_data/databin CHECKPOINT=./checkpoint/ende/lev [SUBSET=valid] bash eval_lev.sh
+set -e
+SRC="${SRC:-en}"
+TGT="${TGT:-de}"
+DATA="${DATA:?Set DATA=path/to/databin}"
+CHECKPOINT="${CHECKPOINT:?Set CHECKPOINT=path/to/checkpoint}"
+SUBSET="${SUBSET:-valid}"
+CKPT="${CKPT:-checkpoint_best.pt}"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+OUT_DIR="${OUT_DIR:-$CHECKPOINT/gen}"
+mkdir -p "$OUT_DIR"
 
-s=$1
-t=$2
-task=$3
-
-if [ ! -d ./rst/${s}${t}/${task} ]; then
-  mkdir -p ./rst/${s}${t}/${task}
-fi
-
-echo ">>> validating"
-
-for file in ./checkpoint/${s}${t}/${task}/*.pt
-do
-  filename=$(basename $file)
-  echo ${filename} 'Translating...'
-  CUDA_VISIBLE_DEVICES=$4 python ./fairseq_lev/fairseq/fairseq_cli/generate.py $TASK_path \
-  --gen-subset valid \
+python "$ROOT/fairseq/fairseq_cli/generate.py" "$DATA" \
+  --gen-subset "$SUBSET" \
+  --path "$CHECKPOINT/$CKPT" \
+  -s $SRC -t $TGT \
   --task translation_lev \
-  --path ./checkpoint/${s}${t}/${task}/${filename} \
   --iter-decode-max-iter 10 \
   --iter-decode-eos-penalty 0 \
-  --remove-bpe \
   --iter-decode-with-beam 1 \
-  --print-step \
-  --batch-size 30 > ./rst/${s}${t}/${task}/${filename}.out 2>&1 &
-  wait
-done
+  --remove-bpe \
+  --batch-size 64 \
+  > "$OUT_DIR/${SUBSET}.out" 2> "$OUT_DIR/${SUBSET}.log"
+grep ^H "$OUT_DIR/${SUBSET}.out" | cut -f3- > "$OUT_DIR/${SUBSET}.hyp"
+echo "Hypotheses: $OUT_DIR/${SUBSET}.hyp"
