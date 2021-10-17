@@ -37,6 +37,30 @@ SRC=en TGT=de DATA=./data/ende_data/databin CHECKPOINT=./checkpoint/ende/mask ba
 REF=./data/ende_data/test.de bash test_mask.sh
 ```
 
+## Lexical choice accuracy
+
+Word-level translation accuracy stratified by **source-word frequency** (H/M/L), as in the paper and RLFW-NAT Table 8: for each source token with aligned reference word, check if the hypothesis has the correct ref word at the aligned position; bucket by frequency estimated on source-side training data.
+
+**Requirements:** Tokenized `src`, `ref`, `hyp` (one sentence per line); alignments in fast_align format (`i-j` per link, one line per sentence).
+
+1. Align source–reference and reference–hypothesis (e.g. [fast_align](https://github.com/clab/fast_align)):
+   ```bash
+   fast_align -i test.en-de.raw -d -v -o > test.en-de.fwd
+   # format: "src_idx-ref_idx" per sentence
+   ```
+   Do the same for ref–hyp (ref as first file, hyp as second) to get `test.de-hyp.align`.
+
+2. Source-side frequency for H/M/L buckets: use training corpus or fairseq dict:
+   ```bash
+   python run/lexical_choice_accuracy.py \
+     --src test.en --ref test.de --hyp test.hyp.de \
+     --align-src-ref test.en-de.align --align-ref-hyp test.de-hyp.align \
+     --dict-src data/ende_data/databin/dict.en.txt
+   ```
+   Or `--train-src data/ende_data/train_kd.en` to count tokens in the training source file.
+
+Output: accuracy overall and per bucket (H / M / L).
+
 ## Citation
 
 ```bibtex
